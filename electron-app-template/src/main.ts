@@ -1,14 +1,28 @@
 import {app, BrowserWindow, Menu} from 'electron';
 
-let win: BrowserWindow;
+let mainWindow: BrowserWindow;
 
-app.on('ready', () => {
-    win = new BrowserWindow({width: 800, height: 600});
+app.on('ready', createWindow);
 
-    win.loadURL(`file://${__dirname}/../index.html`);
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
+});
+
+app.on('activate', () => {
+    if (mainWindow === null) {
+        createWindow();
+    }
+});
+
+function createWindow(): void {
+    mainWindow = new BrowserWindow({width: 800, height: 600});
+
+    mainWindow.loadURL(`file://${__dirname}/../index.html`);
     
-    win.on('closed', () => {
-        win = null;
+    mainWindow.on('closed', () => {
+        mainWindow = null;
     });
 
     const menuTemplate: Electron.MenuItemConstructorOptions[] = [
@@ -21,21 +35,15 @@ app.on('ready', () => {
         {
             label: 'Edit(&E)', 
             submenu: [
-                {label: 'Refresh(&R)', accelerator: 'CmdOrCtrl+R', click: () => win.webContents.reload()}
+                {label: 'Refresh(&R)', accelerator: 'CmdOrCtrl+R', click: () => mainWindow.webContents.reload()}
             ]
         }, 
         {
             label: 'Tools(&T)', 
             submenu: [
-                {label: 'Toggle Developer Tools', accelerator: 'F12', click: () => win.webContents.toggleDevTools()}
+                {label: 'Toggle Developer Tools', accelerator: 'F12', click: () => mainWindow.webContents.toggleDevTools()}
             ]
         }
     ];
     Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
-});
-
-app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-        app.quit();
-    }
-});
+}
