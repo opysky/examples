@@ -9,25 +9,32 @@ tag.src = "https://www.youtube.com/iframe_api";
 var firstScriptTag = document.getElementsByTagName('script')[0];
 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-var player: any;
+let player: any;
+const videoid = 'M7lc1UVf-VE';
+//const videoid = 'eggR4dKQR_w'; // 4K
 
 // 全然わからない。俺たちは雰囲気でTypeScriptをやっている
 (window as any).onYouTubeIframeAPIReady = () => {
-//export function onYouTubeIframeAPIReady() {
     player = new YT.Player('player', {
-        height: '360',
+        height: '480',
         width: '640',
-        videoId: 'M7lc1UVf-VE',
+        //videoId: videoid,
         playerVars: {
             autoplay: 1,
+            loop: 1,
+            //playlist: videoid,
             //showinfo: 0, 
             //controls: 0, 
             //modestbranding: 1, 
             //rel: 0, 
-        }, 
+            //iv_load_policy: 3, 
+        },
         events: {
-            //'onReady': onPlayerReady,
+            'onReady': () => {
+                const rates: Array<number> = player.getAvailablePlaybackRates();
+                player.setPlaybackRate(rates[rates.length-1]);
+            },
             //'onStateChange': onPlayerStateChange
         }
     });
-}
+};
