@@ -5,10 +5,6 @@
 
 #pragma once
 
-#define NOMINMAX
-
-#include "winrt/Windows.Foundation.h"
-
 #include "atlbase.h"
 #include "atlapp.h"
 extern CAppModule _Module;
@@ -16,3 +12,10 @@ extern CAppModule _Module;
 #include "atlcrack.h"
 #include "atlgdi.h"
 #include "atlmisc.h"
+
+#define NOMINMAX
+
+#include "winrt/Windows.System.h"
+#include "winrt/Windows.Foundation.h"
+#include "winrt/Windows.Web.UI.Interop.h"
+#include <DispatcherQueue.h>
