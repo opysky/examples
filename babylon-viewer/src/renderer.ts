@@ -1,4 +1,6 @@
 import * as babylon from 'babylonjs';
+import * as electron from 'electron';
+import {app, remote} from 'electron';
 
 export default class Renderer {
     private _canvas: HTMLCanvasElement;
@@ -38,9 +40,26 @@ export default class Renderer {
     }
 }
 
+let renderer: Renderer = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     if (babylon.Engine.isSupported()) {
-        const renderer = new Renderer();
+        renderer = new Renderer();
         renderer.initialize(document.getElementById('render-canvas') as HTMLCanvasElement);
     }
+    
+    const button = document.getElementById('openFile');
+    button.addEventListener('click', () => {
+        const win = remote.BrowserWindow.getFocusedWindow();
+        const options: electron.OpenDialogOptions = {
+            title: 'showOpenFilePicker', 
+            defaultPath: remote.app.getPath('userDesktop'), 
+            filters: [
+                {name: 'Scenes', extensions: ['obj', 'gltf', 'glb']}, 
+            ]
+        };
+        remote.dialog.showOpenDialog(win, options, (pathname) => {
+            console.log(pathname);
+        });    
+    });
 });
