@@ -9,6 +9,7 @@
 #include "atlapp.h"
 extern CAppModule _Module;
 #include "atlwin.h"
+#include "atlctrls.h"
 #include "atlcrack.h"
 #include "atlgdi.h"
 #include "atlmisc.h"

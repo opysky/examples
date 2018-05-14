@@ -4,25 +4,67 @@ using namespace winrt;
 using namespace Windows::Foundation;
 using namespace Windows::Web::UI::Interop;
 
+class EdgeView : public CWindowImpl<EdgeView> {
+public:
+	DECLARE_WND_CLASS(nullptr)
+
+	IAsyncAction CreateWebViewAsync(HWND hWndParent, ATL::_U_RECT rect) {
+		CWindowImpl<EdgeView>::Create(hWndParent, rect);
+
+		_webViewProcess = WebViewControlProcess();
+
+		_webView = co_await _webViewProcess.CreateWebViewControlAsync(
+			(int64_t)m_hWnd, 
+			Rect(rect.m_lpRect->left, 
+				rect.m_lpRect->top, 
+				rect.m_lpRect->right - rect.m_lpRect->left, 
+				rect.m_lpRect->bottom - rect.m_lpRect->top));
+
+		Uri uri(L"http://aka.ms/cppwinrt");
+		_webView.Navigate(uri);
+	}
+
+private:
+	BEGIN_MSG_MAP(EdgeView)
+		MSG_WM_SIZE(OnSize)
+		MSG_WM_DESTROY(OnDestroy)
+	END_MSG_MAP()
+
+	void OnSize(int nType, CSize const& size) {
+		if (!_webView || nType == SIZE_MINIMIZED || nType == SIZE_MAXHIDE || size.cx == 0 || size.cy == 0) {
+			return;
+		}
+
+		CRect rect;
+		GetClientRect(&rect);
+		_webView.Bounds(Rect(rect.left, rect.top, rect.Width(), rect.Height()));
+	}
+
+	void OnDestroy() {
+		if (_webViewProcess) {
+			_webViewProcess.Terminate();
+		}
+	}
+
+	WebViewControlProcess _webViewProcess{ nullptr };
+	WebViewControl _webView{ nullptr };
+};
+
 
 class MainWindow : public CWindowImpl<MainWindow> {
 public:
 	DECLARE_WND_CLASS(nullptr)
 
-	IAsyncAction LaunchApp(int nCmdShow) {
+	IAsyncAction LaunchAsync(int nCmdShow) {
 		Create(nullptr, CWindow::rcDefault, L"EdgeView32", WS_OVERLAPPEDWINDOW);
+
 		CenterWindow();
 		ShowWindow(nCmdShow);
 		Invalidate();
 
-		_webViewProcess = WebViewControlProcess();
-
 		CRect rect;
 		GetClientRect(&rect);
-		_webView = co_await _webViewProcess.CreateWebViewControlAsync((int64_t)m_hWnd, Rect(rect.left, rect.top, rect.Width(), rect.Height()));
-
-		Uri uri(L"http://aka.ms/cppwinrt");
-		_webView.Navigate(uri);
+		co_await _webView.CreateWebViewAsync(*this, rect);
 	}
 
 private:
@@ -46,47 +88,27 @@ private:
 	//}
 
 	void OnSize(int nType, CSize const& size) {
-		if (!_webView || nType == SIZE_MINIMIZED || size.cx == 0 || size.cy == 0) {
+		if (!_webView || nType==SIZE_MINIMIZED || nType==SIZE_MAXHIDE || size.cx==0 || size.cy==0) {
 			return;
 		}
 
 		CRect rect;
 		GetClientRect(&rect);
-		_webView.Bounds(Rect(rect.left, rect.top, rect.Width(), rect.Height()));
+
+		_webView.SetWindowPos(nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER | SWP_NOACTIVATE);
 	}
 
 	void OnDestroy() {
-		_webViewProcess.Terminate();
 		PostQuitMessage(0);
 	}
 
-	WebViewControlProcess _webViewProcess = nullptr;
-	WebViewControl _webView = nullptr;
+	EdgeView _webView;
 };
-
-// Windows::Web::UI::Interop関連では特に必要ないみたい
-//auto CreateDispatcherQueueController()
-//{
-//	namespace abi = ABI::Windows::System;
-//
-//	DispatcherQueueOptions options
-//	{
-//		sizeof(DispatcherQueueOptions),
-//		DQTYPE_THREAD_CURRENT,
-//		DQTAT_COM_STA
-//	};
-//
-//	Windows::System::DispatcherQueueController controller{ nullptr };
-//	check_hresult(CreateDispatcherQueueController(options, reinterpret_cast<abi::IDispatcherQueueController**>(put_abi(controller))));
-//	return controller;
-//}
 
 CAppModule _Module;
 
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
     init_apartment(apartment_type::single_threaded);
-
-	//auto controller = CreateDispatcherQueueController();
 
 	_Module.Init(nullptr, hInstance);
 
@@ -94,7 +116,7 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
 	_Module.AddMessageLoop(&kicker);
 
 	MainWindow win;
-	win.LaunchApp(nCmdShow);
+	win.LaunchAsync(nCmdShow);
 
 	int wParam = kicker.Run();
 
