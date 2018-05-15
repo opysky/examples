@@ -2,6 +2,7 @@
 
 using namespace winrt;
 using namespace Windows::Foundation;
+using namespace Windows::Web::UI;
 using namespace Windows::Web::UI::Interop;
 
 class EdgeView : public CWindowImpl<EdgeView> {
@@ -13,15 +14,20 @@ public:
 
 		_webViewProcess = WebViewControlProcess();
 
+		CRect client;
+		GetClientRect(&client);
 		_webView = co_await _webViewProcess.CreateWebViewControlAsync(
 			(int64_t)m_hWnd, 
-			Rect(rect.m_lpRect->left, 
-				rect.m_lpRect->top, 
-				rect.m_lpRect->right - rect.m_lpRect->left, 
-				rect.m_lpRect->bottom - rect.m_lpRect->top));
+			Rect(client.left, client.top, client.Width(), client.Height()));
 
-		Uri uri(L"http://aka.ms/cppwinrt");
+		Uri uri(L"https://www.babylonjs.com/");
 		_webView.Navigate(uri);
+
+		// ウィンドウの新規作成リクエストは既定だと何もしてくれないっぽ
+		_webView.NewWindowRequested([&](IWebViewControl const& s, WebViewControlNewWindowRequestedEventArgs const& e) {
+			_webView.Navigate(e.Uri());
+			e.Handled(true);
+		});
 	}
 
 private:
@@ -35,6 +41,7 @@ private:
 			return;
 		}
 
+		// Boundsを設定すれば再描画される
 		CRect rect;
 		GetClientRect(&rect);
 		_webView.Bounds(Rect(rect.left, rect.top, rect.Width(), rect.Height()));
@@ -64,45 +71,30 @@ public:
 
 		CRect rect;
 		GetClientRect(&rect);
-		co_await _webView.CreateWebViewAsync(*this, rect);
+		co_await _edgeView.CreateWebViewAsync(*this, rect);
 	}
 
 private:
 	BEGIN_MSG_MAP(MainWindow) 
-		//MSG_WM_PAINT(OnPaint)
 		MSG_WM_SIZE(OnSize)
 		MSG_WM_DESTROY(OnDestroy)
 	END_MSG_MAP()
 
-	//void OnPaint(HDC) {
-	//	CPaintDC dc(*this);
-
-	//	Uri uri(L"http://aka.ms/cppwinrt");
-
-	//	std::array<wchar_t, 256> text;
-	//	std::swprintf(&text[0], text.size(), L"Hello, %s!", uri.AbsoluteUri().c_str());
-
-	//	CRect rect;
-	//	GetClientRect(&rect);
-	//	dc.DrawTextW(&text[0], -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-	//}
-
 	void OnSize(int nType, CSize const& size) {
-		if (!_webView || nType==SIZE_MINIMIZED || nType==SIZE_MAXHIDE || size.cx==0 || size.cy==0) {
+		if (!_edgeView || nType==SIZE_MINIMIZED || nType==SIZE_MAXHIDE || size.cx==0 || size.cy==0) {
 			return;
 		}
 
 		CRect rect;
 		GetClientRect(&rect);
-
-		_webView.SetWindowPos(nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER | SWP_NOACTIVATE);
+		_edgeView.SetWindowPos(nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER | SWP_NOACTIVATE);
 	}
 
 	void OnDestroy() {
 		PostQuitMessage(0);
 	}
 
-	EdgeView _webView;
+	EdgeView _edgeView;
 };
 
 CAppModule _Module;
@@ -122,5 +114,6 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
 
 	_Module.RemoveMessageLoop();
 	_Module.Term();
+
 	return wParam;
 }
