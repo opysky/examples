@@ -2,6 +2,7 @@
 
 using namespace winrt;
 using namespace Windows::Foundation;
+using namespace Windows::Web;
 using namespace Windows::Web::UI;
 using namespace Windows::Web::UI::Interop;
 
@@ -20,14 +21,22 @@ public:
 			(int64_t)m_hWnd, 
 			Rect(client.left, client.top, client.Width(), client.Height()));
 
-		Uri uri(L"https://www.babylonjs.com/");
-		_webView.Navigate(uri);
-
 		// ウィンドウの新規作成リクエストは既定だと何もしてくれないっぽ
 		_webView.NewWindowRequested([&](IWebViewControl const& s, WebViewControlNewWindowRequestedEventArgs const& e) {
 			_webView.Navigate(e.Uri());
 			e.Handled(true);
 		});
+
+		_webView.UnsupportedUriSchemeIdentified([](IWebViewControl const& s, IWebViewControlUnsupportedUriSchemeIdentifiedEventArgs const& e) {
+			e.Uri();
+		});
+
+		_webView.ContentLoading([](IWebViewControl const& s, WebViewControlContentLoadingEventArgs const& e) {
+			e.Uri();
+		});
+
+		Uri uri(L"https://www.babylonjs.com/");
+		_webView.Navigate(uri);
 	}
 
 private:

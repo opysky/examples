@@ -1,0 +1,20 @@
+{
+    "author": "opysky.net", 
+    "name": "googleSearch", 
+    "version": "0.1",
+    "description": "コンテキストメニューからGoogleで検索します。",
+
+    "icons": {
+        "16": "smalllogo16.png",
+        "48": "smalllogo48.png"
+    },
+
+    "permissions": [
+        "contextMenus"
+    ],
+
+    "background": {
+        "scripts": ["background.js"],
+        "persistent": false
+    }
+}
