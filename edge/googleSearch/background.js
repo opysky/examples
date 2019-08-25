@@ -1,11 +1,11 @@
-browser.contextMenus.create({
-    id: 'googleSearch', 
-    title: 'Googleで「%s」を検索', 
-    contexts: ['selection'], 
-    onclick: (info, tab) => {
-        browser.tabs.create({url: 'https://www.google.com/search?q=' + info.selectionText});
-    }
-});
+// browser.contextMenus.create({
+//     id: 'googleSearch', 
+//     title: 'Googleで選択した文字を検索', 
+//     contexts: ['selection'], 
+//     onclick: (info, tab) => {
+//         browser.tabs.create({url: 'https://www.google.com/search?q=' + info.selectionText});
+//     }
+// });
 
 browser.contextMenus.create({
     id: 'googleImageSearch', 
