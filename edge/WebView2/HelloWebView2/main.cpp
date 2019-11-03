@@ -17,12 +17,12 @@ public:
 
 					// Create a WebView, whose parent is the main window hWnd
 					env->CreateWebView(*this, Callback<IWebView2CreateWebViewCompletedHandler>(
-						[this](HRESULT result, IWebView2WebView* webview) -> HRESULT {
-							if (webview != nullptr) {
-								_webView = webview;
+						[this](HRESULT result, IWebView2WebView* webView) -> HRESULT {
+							if (webView != nullptr) {
+								_webView = webView;
 							}
 
-							// Add a few settings for the webview
+							// Add a few settings for the webView
 							// this is a redundant demo step as they are the default settings values
 							IWebView2Settings* Settings;
 							_webView->get_Settings(&Settings);
@@ -60,7 +60,7 @@ private:
 		MSG_WM_DESTROY(OnDestroy)
 	END_MSG_MAP()
 
-	void OnSize(int nType, CSize size) {
+	void OnSize(int nType, CSize const& size) {
 		if (_webView == nullptr) {
 			return;
 		}
