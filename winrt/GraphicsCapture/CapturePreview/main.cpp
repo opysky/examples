@@ -4,9 +4,6 @@
 
 using namespace winrt;
 using namespace winrt::Windows::System;
-using namespace winrt::Windows::Storage;
-using namespace winrt::Windows::Storage::Streams;
-using namespace winrt::Windows::UI;
 using namespace winrt::Windows::Graphics::DirectX::Direct3D11;
 using namespace winrt::Windows::Graphics::Capture;
 

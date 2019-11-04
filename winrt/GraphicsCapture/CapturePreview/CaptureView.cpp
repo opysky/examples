@@ -5,16 +5,10 @@
 using namespace winrt;
 using namespace winrt::Windows::Foundation;
 using namespace winrt::Windows::System;
-using namespace winrt::Windows::UI;
-using namespace winrt::Windows::UI::Composition;
-using namespace winrt::Windows::UI::Composition::Desktop;
 using namespace winrt::Windows::Graphics;
 using namespace winrt::Windows::Graphics::DirectX;
 using namespace winrt::Windows::Graphics::DirectX::Direct3D11;
 using namespace winrt::Windows::Graphics::Capture;
-using namespace winrt::Windows::Media::Core;
-using namespace winrt::Windows::Media::MediaProperties;
-using namespace winrt::Windows::Media::Transcoding;
 
 using namespace ::DirectX;
 
@@ -211,11 +205,11 @@ void CaptureView::OnFrameArrived(
 	// ƒŒƒ“ƒ_ƒŠƒ“ƒO‚Í ContentSize ‚ğŠî€‚É‚·‚é‚×‚«
 	auto contentSize = frame.ContentSize();
 
-	com_ptr<ID3D11DeviceContext> context;
-	_d3dDevice->GetImmediateContext(context.put());
-
 	com_ptr<ID3D11ShaderResourceView> frameSurfaceSRV;
 	check_hresult(_d3dDevice->CreateShaderResourceView(frameSurface.get(), nullptr, frameSurfaceSRV.put()));
+
+	com_ptr<ID3D11DeviceContext> context;
+	_d3dDevice->GetImmediateContext(context.put());
 
 	ID3D11RenderTargetView* pRTVs[1];
 	pRTVs[0] = _chainedBufferRTV.get();

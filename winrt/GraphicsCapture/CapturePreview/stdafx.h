@@ -15,16 +15,9 @@ extern CAppModule _Module;
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.System.h>
-#include <winrt/Windows.Storage.Streams.h>
-#include <winrt/Windows.UI.h>
-#include <winrt/Windows.UI.Composition.h>
-#include <winrt/Windows.UI.Composition.Desktop.h>
 #include <winrt/Windows.Graphics.Capture.h>
 #include <winrt/Windows.Graphics.DirectX.h>
 #include <winrt/Windows.Graphics.DirectX.Direct3d11.h>
-#include <winrt/Windows.Media.Core.h>
-#include <winrt/Windows.Media.MediaProperties.h>
-#include <winrt/Windows.Media.Transcoding.h>
 
 #include <shcore.h>
 #include <dwmapi.h>
