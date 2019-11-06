@@ -31,7 +31,8 @@ bool IsAltTabWindow(WindowInfo const& info)
 		return false;
 	}
 
-	// Logicool Optionsの隠しウィンドウとかこれでも捕まえられないなあ
+	// @memo Logicool Optionsの隠しウィンドウやVCL製のトップウィンドウ（？）など
+	// そのまま渡すとエラーになるウィンドウは多少すり抜けてしまう
 
 	return true;
 }

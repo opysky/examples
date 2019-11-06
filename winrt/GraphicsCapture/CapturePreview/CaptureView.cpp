@@ -97,7 +97,7 @@ HRESULT CaptureView::CreateDevice()
 	return S_OK;
 }
 
-bool CaptureView::StartCaptureForItem(winrt::Windows::Graphics::Capture::GraphicsCaptureItem const& item)
+bool CaptureView::StartCapture(winrt::Windows::Graphics::Capture::GraphicsCaptureItem const& item)
 {
 	// Direct3D11CaptureFramePool は使いまわせても良さそうな気がするけど
 	// GraphicsCaptureSession と一緒に破棄しないとダメっぽ
@@ -125,7 +125,7 @@ bool CaptureView::StartCaptureForItem(winrt::Windows::Graphics::Capture::Graphic
 
 bool CaptureView::StartCaptureForHwnd(HWND hwndItem)
 {
-	return StartCaptureForItem(CreateCaptureItemForWindow(hwndItem));
+	return StartCapture(CreateCaptureItemForWindow(hwndItem));
 }
 
 void CaptureView::StopCapture()
@@ -147,7 +147,7 @@ void CaptureView::OnPaint(CDCHandle)
 {
 	CPaintDC dc(*this);
 
-	if (_dxgiSwapChain == nullptr || IsCapturing()) {
+	if (!_dxgiSwapChain || IsCapturing()) {
 		return;
 	}
 
@@ -172,7 +172,6 @@ void CaptureView::OnSize(UINT nType, CSize const& size)
 
 	if ((nType == SIZE_RESTORED || nType == SIZE_MAX) && size.cx > 0 && size.cy) {
 		_chainedBufferRTV = nullptr;
-		
 		_dxgiSwapChain->ResizeBuffers(2, size.cx, size.cy, DXGI_FORMAT_B8G8R8A8_UNORM, 0);
 		
 		com_ptr<ID3D11Texture2D> chainedBuffer;
@@ -256,7 +255,7 @@ void CaptureView::OnFrameArrived(
 	if (itemSize.Width != surfaceDesc.Width || itemSize.Height != surfaceDesc.Height) {
 		// GraphicsCaptureItem::Closed は参照しているウィンドウが破棄されたら
 		// 発行されるイベントかと思ったけどそういうわけでも無さそう…
-		// Size がゼロなら破棄されたと見做すしかないかな？
+		// Size が 0 なら破棄されたと見做すしかないかな？
 		itemSize.Width = std::max(itemSize.Width, 1);
 		itemSize.Height = std::max(itemSize.Height, 1);
 		_framePool.Recreate(_device, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, itemSize);

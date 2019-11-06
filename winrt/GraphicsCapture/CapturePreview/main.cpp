@@ -40,7 +40,7 @@ public:
 
 		_windowsInAltTab = GetWindowsInAltTab();
 		for (auto& window : _windowsInAltTab) {
-			_comboBox.AddString(window.windowText.c_str());
+			_windowsBox.AddString(window.windowText.c_str());
 		}
 
 		_captureView.CreateDevice();
@@ -58,17 +58,20 @@ private:
 
 	fire_and_forget OnButtonClicked(UINT uNotifyCode, int, CWindow) {
 		GraphicsCapturePicker picker;
-		auto interop = picker.as<::IInitializeWithWindow>();
-		interop->Initialize(*this);
+		auto initializer = picker.as<::IInitializeWithWindow>();
+		initializer->Initialize(*this);
+
 		apartment_context context;
 		auto item = co_await picker.PickSingleItemAsync();
 		co_await context;
-		if (!!item)
-			_captureView.StartCaptureForItem(item);
+		
+		if (!!item) {
+			_captureView.StartCapture(item);
+		}
 	}
 
 	void OnComboSelectChange(UINT uNotifyCode, int, CWindow) {
-		auto index = _comboBox.GetCurSel();
+		auto index = _windowsBox.GetCurSel();
 		auto window = _windowsInAltTab[index];
 
 		_captureView.StartCaptureForHwnd(window.hwnd);
@@ -91,7 +94,7 @@ private:
 		comboRect.right = clientRect.right - 10;
 		comboRect.top = clientRect.top + 10;
 		comboRect.bottom = comboRect.top + captionHeight;
-		_comboBox.MoveWindow(&comboRect);
+		_windowsBox.MoveWindow(&comboRect);
 
 		CRect contentRect;
 		contentRect.left = clientRect.left + 10;
@@ -133,12 +136,12 @@ private:
 		comboRect.right = clientRect.right - 10;
 		comboRect.top = clientRect.top + 10;
 		comboRect.bottom = comboRect.top + captionHeight;
-		_comboBox.Create(
+		_windowsBox.Create(
 			*this,
 			comboRect,
 			nullptr,
 			CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL | WS_CHILD | WS_VISIBLE);
-		_comboBox.SetFont(_iconTitleFont);
+		_windowsBox.SetFont(_iconTitleFont);
 
 		CRect contentRect;
 		contentRect.left = clientRect.left + 10;
@@ -157,7 +160,7 @@ private:
 private:
 	CFont _iconTitleFont;
 	CButton _pickerButton;
-	CComboBox _comboBox;
+	CComboBox _windowsBox;
 	CaptureView _captureView;
 	std::vector<WindowInfo> _windowsInAltTab;
 };

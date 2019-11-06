@@ -5,7 +5,7 @@ public:
 	DECLARE_WND_CLASS_EX(nullptr, CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS, -1)
 
 	HRESULT CreateDevice();
-	bool StartCaptureForItem(winrt::Windows::Graphics::Capture::GraphicsCaptureItem const& item);
+	bool StartCapture(winrt::Windows::Graphics::Capture::GraphicsCaptureItem const& item);
 	bool StartCaptureForHwnd(HWND hwndItem);
 	void StopCapture();
 	bool IsCapturing() { return _framePool != nullptr; }
