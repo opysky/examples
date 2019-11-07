@@ -9,7 +9,7 @@ using namespace winrt::Windows::Graphics::Capture;
 
 namespace {
 
-// Windows::Graphics::Capture を使うだけなら別に要らん模様
+//Windows::Graphics::Capture を使うだけなら別に要らん模様
 //auto CreateDispatcherQueueController() 
 //{
 //	namespace abi = ABI::Windows::System;
@@ -61,10 +61,7 @@ private:
 		auto initializer = picker.as<::IInitializeWithWindow>();
 		initializer->Initialize(*this);
 
-		apartment_context context;
 		auto item = co_await picker.PickSingleItemAsync();
-		co_await context;
-		
 		if (!!item) {
 			_captureView.StartCapture(item);
 		}
@@ -170,10 +167,9 @@ CAppModule _Module;
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, WCHAR*, int) 
 {
 	init_apartment(apartment_type::single_threaded);
-	//init_apartment();
 
-	//auto controller = CreateDispatcherQueueController();
-	//auto queue = controller.DispatcherQueue();
+    //auto controller = CreateDispatcherQueueController();
+    //auto queue = controller.DispatcherQueue();
 
 	_Module.Init(nullptr, hInstance);
 
