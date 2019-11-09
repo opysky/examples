@@ -14,7 +14,6 @@ using namespace ::DirectX;
 
 namespace {
 
-
 auto CreateCaptureItemForWindow(HWND hwnd)
 {
 	namespace abi = ABI::Windows::Graphics::Capture;
@@ -133,13 +132,14 @@ void CaptureView::StopCapture()
 	if (IsCapturing()) {		
 		_frameArrived.revoke();
 
-		// これらは明示的に Close を呼び出さないと参照カウンタが残ってるというレポートが吐かれる？
-		_captureSession.Close();
-		_framePool.Close();
+        _captureSession = nullptr;
 
-		_captureSession = nullptr;
-		_captureItem = nullptr;
+		// 何故か Direct3DCaptureFramePool は Close を手動で呼び出さないと
+        // 参照カウンタが残ってるというレポートが吐かれる？
+        _framePool.Close();
 		_framePool = nullptr;
+		
+        _captureItem = nullptr;
 	}
 }
 
