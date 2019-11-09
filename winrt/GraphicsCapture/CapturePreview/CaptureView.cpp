@@ -249,8 +249,7 @@ void CaptureView::OnFrameArrived(
 	// Surface のサイズはおそらく FramePool 作成時のバッファサイズ。
 	// CaptureItem のサイズはウィンドウのサイズに追従するので
 	// 差異があるなら FramePool を再作成する
-	D3D11_TEXTURE2D_DESC surfaceDesc;
-	frameSurface->GetDesc(&surfaceDesc);
+    auto surfaceDesc = frame.Surface().Description();
 	auto itemSize = _captureItem.Size();
 	if (itemSize.Width != surfaceDesc.Width || itemSize.Height != surfaceDesc.Height) {
 		// GraphicsCaptureItem::Closed は参照しているウィンドウが破棄されたら
