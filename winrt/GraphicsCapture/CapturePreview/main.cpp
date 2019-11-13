@@ -34,6 +34,11 @@ public:
 	void Launch() {
 		Create(nullptr, CWindow::rcDefault, L"CapturePreview", WS_OVERLAPPEDWINDOW);
 
+        if (!GraphicsCaptureSession::IsSupported()) {
+            MessageBox(L"Screen capture is not supported on this device for this release of Windows!",
+                       L"Screen capture unsupported");
+        }
+
 		CenterWindow();
 		ShowWindow(SW_SHOWNORMAL);
 		Invalidate();
@@ -167,6 +172,8 @@ CAppModule _Module;
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, WCHAR*, int) 
 {
 	init_apartment(apartment_type::single_threaded);
+
+    //SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
 
     //auto controller = CreateDispatcherQueueController();
     //auto queue = controller.DispatcherQueue();

@@ -96,35 +96,28 @@ HRESULT CaptureView::CreateDevice()
 	return S_OK;
 }
 
-bool CaptureView::StartCapture(winrt::Windows::Graphics::Capture::GraphicsCaptureItem const& item)
+void CaptureView::StartCapture(winrt::Windows::Graphics::Capture::GraphicsCaptureItem const& item)
 {
 	// Direct3D11CaptureFramePool は使いまわせても良さそうな気がするけど
 	// GraphicsCaptureSession と一緒に破棄しないとダメっぽ
 	StopCapture();
 
-	auto framePool = Direct3D11CaptureFramePool::Create(
+    _captureItem = item;
+
+	_framePool = Direct3D11CaptureFramePool::Create(
 		_device,
 		DirectXPixelFormat::B8G8R8A8UIntNormalized,
 		2,
-		item.Size());
-	auto session = framePool.CreateCaptureSession(item);
-	if (!session.IsSupported()) {
-		return false;
-	}
-
-	_captureItem = item;
-	_framePool = framePool;
-	_frameArrived = _framePool.FrameArrived(auto_revoke, { this, &CaptureView::OnFrameArrived });
-	_captureSession = session;
-
+		_captureItem.Size());
+    _frameArrived = _framePool.FrameArrived(auto_revoke, { this, &CaptureView::OnFrameArrived });
+	
+    _captureSession = _framePool.CreateCaptureSession(item);
 	_captureSession.StartCapture();
-
-	return true;
 }
 
-bool CaptureView::StartCaptureForHwnd(HWND hwndItem)
+void CaptureView::StartCaptureForHwnd(HWND hwndItem)
 {
-	return StartCapture(CreateCaptureItemForWindow(hwndItem));
+	StartCapture(CreateCaptureItemForWindow(hwndItem));
 }
 
 void CaptureView::StopCapture()
@@ -217,8 +210,6 @@ void CaptureView::OnFrameArrived(
 	D3D11_VIEWPORT vp = { 0 };
 	DXGI_SWAP_CHAIN_DESC1 scd;
 	_dxgiSwapChain->GetDesc1(&scd);
-	vp.TopLeftX = 0;
-	vp.TopLeftY = 0;
 	vp.Width = static_cast<float>(scd.Width);
 	vp.Height = static_cast<float>(scd.Height);
 	context->RSSetViewports(1, &vp);
@@ -255,8 +246,9 @@ void CaptureView::OnFrameArrived(
 		// GraphicsCaptureItem::Closed は参照しているウィンドウが破棄されたら
 		// 発行されるイベントかと思ったけどそういうわけでも無さそう…
 		// Size が 0 なら破棄されたと見做すしかないかな？
-		itemSize.Width = std::max(itemSize.Width, 1);
-		itemSize.Height = std::max(itemSize.Height, 1);
-		_framePool.Recreate(_device, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, itemSize);
+        SizeInt32 size;
+		size.Width = std::max(itemSize.Width, 1);
+		size.Height = std::max(itemSize.Height, 1);
+		_framePool.Recreate(_device, DirectXPixelFormat::B8G8R8A8UIntNormalized, 2, size);
 	}
 }
