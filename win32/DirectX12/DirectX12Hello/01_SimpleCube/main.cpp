@@ -1,5 +1,6 @@
 #include "stdafx.h"
 
+using namespace DirectX;
 using namespace DirectX::SimpleMath;
 
 namespace {
@@ -39,7 +40,7 @@ public:
             factoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
         }
 #endif
-        wil::com_ptr<IDXGIFactory4> factory;
+        wil::com_ptr<IDXGIFactory5> factory;
         THROW_IF_FAILED(CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(factory.put())));
         
         wil::com_ptr<IDXGIAdapter1> adapter;
@@ -64,6 +65,13 @@ public:
         CRect clientRect;
         GetClientRect(&clientRect);
 
+        BOOL tearingSupported = FALSE;
+        THROW_IF_FAILED(factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &tearingSupported, sizeof(tearingSupported)));
+        UINT swapChainFlags = 0;
+        if (tearingSupported) {
+            swapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
+        }
+
         DXGI_SWAP_CHAIN_DESC1 scd = {};
         scd.Width = static_cast<UINT>(clientRect.Width());
         scd.Height = static_cast<UINT>(clientRect.Height());
@@ -72,6 +80,7 @@ public:
         scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
         scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
         scd.SampleDesc.Count = 1;
+        scd.Flags = swapChainFlags;
 
         wil::com_ptr<IDXGISwapChain1> swapChain;
         THROW_IF_FAILED(factory->CreateSwapChainForHwnd(_commandQueue.get(), *this, &scd, nullptr, nullptr, swapChain.put()));
@@ -287,7 +296,6 @@ public:
             // Unmap しなくてもコマンドリストがバッファの内容を GPU へ反映してくれるらしい
             CD3DX12_RANGE readRange(0, 0);
             THROW_IF_FAILED(_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&_cbMappedData)));
-
             *_cbMappedData = {};
         }
 
@@ -338,9 +346,9 @@ private:
         static float yAngle = 0.0f;
         yAngle += 45.0f * deltaTime;
 
-        auto object = Matrix::CreateRotationY(DirectX::XMConvertToRadians(yAngle));
+        auto object = Matrix::CreateRotationY(XMConvertToRadians(yAngle));
         auto camera = Matrix::CreateLookAt(Vector3(3, 3, 5), Vector3::Zero, Vector3::Up);
-        auto projection = Matrix::CreatePerspectiveFieldOfView(DirectX::XMConvertToRadians(45), aspectRatio, 0.1f, 100.0f);
+        auto projection = Matrix::CreatePerspectiveFieldOfView(XMConvertToRadians(45), aspectRatio, 0.1f, 100.0f);
 
         _cbMappedData->worldViewProjectionMatrix =  object * camera * projection;
     }
@@ -348,7 +356,7 @@ private:
     void OnRender() {
         THROW_IF_FAILED(_commandAllocator->Reset());
 
-        THROW_IF_FAILED(_commandList->Reset(_commandAllocator.get(), _pipelineState.get()));
+        THROW_IF_FAILED(_commandList->Reset(_commandAllocator.get(), nullptr));
 
         {
             // フレームバッファのバインド及びクリア
@@ -370,23 +378,26 @@ private:
 
             _commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
-            auto clearColor = D2D1::ColorF(D2D1::ColorF::CornflowerBlue);
-            _commandList->ClearRenderTargetView(rtvHandle, &clearColor.r, 0, nullptr);
+            _commandList->ClearRenderTargetView(rtvHandle, Colors::CornflowerBlue, 0, nullptr);
             _commandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0x0, 0, nullptr);
         }
 
         {
             // 立方体のレンダリング
+            _commandList->SetPipelineState(_pipelineState.get());
+            
             _commandList->SetGraphicsRootSignature(_rootSignature.get());
 
-            ID3D12DescriptorHeap* descriptorHeaps[] = {
+            std::array<ID3D12DescriptorHeap*, 1> descriptorHeaps = {
                 _cbvHeap.get(), 
             };
-            _commandList->SetDescriptorHeaps(1, descriptorHeaps);
+            _commandList->SetDescriptorHeaps(descriptorHeaps.size(), descriptorHeaps.data());
 
             _commandList->SetGraphicsRootDescriptorTable(0, _cbvHeap->GetGPUDescriptorHandleForHeapStart());
             
             _commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+            // VBV/IBV は保持しておく必要はないみたい
 
             D3D12_VERTEX_BUFFER_VIEW vertexBufferView = {};
             vertexBufferView.BufferLocation = _vertexBuffer->GetGPUVirtualAddress();
@@ -412,7 +423,18 @@ private:
         };
         _commandQueue->ExecuteCommandLists(commandLists.size(), commandLists.data());
 
-        THROW_IF_FAILED(_swapChain->Present(1, 0));
+        // 今は DXGI_PRESENT_ALLOW_TEARING を明示しないと 
+        // SyncInterval を 0 にしただけでは垂直同期を無視できない環境があるっぽい？
+        // 条件が良くわからない…
+        bool allowTearing = false;
+        UINT syncInterval = 1;
+        UINT presentFlags = 0;
+        DXGI_PRESENT_PARAMETERS pp = {};
+        if (allowTearing) {
+            syncInterval = 0;
+            presentFlags |= DXGI_PRESENT_ALLOW_TEARING;
+        }
+        THROW_IF_FAILED(_swapChain->Present1(syncInterval, presentFlags, &pp));
 
         WaitForGpu();
     }

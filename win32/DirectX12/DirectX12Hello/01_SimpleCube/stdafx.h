@@ -15,8 +15,10 @@ extern CAppModule _Module;
 
 #include <d3d12.h>
 #include <dxgi1_6.h>
-#include <d2d1_3helper.h>
 #include <d3dcompiler.h>
+#include <DirectXMath.h>
+#include <DirectXColors.h>
+
 #include <SimpleMath.h>
 
 #include "d3dx12.h"
