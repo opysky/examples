@@ -11,7 +11,7 @@ public:
     DECLARE_WND_CLASS_EX(nullptr, CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS, -1)
 
     void Launch() {
-        Create(nullptr, CWindow::rcDefault, L"DirectX12Hello - 00_Hello", WS_OVERLAPPEDWINDOW);
+        Create(nullptr, CWindow::rcDefault, L"00_Hello", WS_OVERLAPPEDWINDOW);
 
         CenterWindow();
         ShowWindow(SW_SHOWNORMAL);
