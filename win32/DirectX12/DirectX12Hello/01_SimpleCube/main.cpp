@@ -96,13 +96,13 @@ public:
             heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
             THROW_IF_FAILED(_device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(_rtvHeap.put())));
 
-            D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = _rtvHeap->GetCPUDescriptorHandleForHeapStart();
+            CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(_rtvHeap->GetCPUDescriptorHandleForHeapStart());
             auto rtvDescriptorSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
             for (UINT i = 0; i < FrameCount; ++i) {
                 THROW_IF_FAILED(_swapChain->GetBuffer(i, IID_PPV_ARGS(_renderTargets[i].put())));
                 _device->CreateRenderTargetView(_renderTargets[i].get(), nullptr, rtvHandle);
-                rtvHandle.ptr += rtvDescriptorSize;
+                rtvHandle.Offset(rtvDescriptorSize);
             }
         }
 
@@ -194,7 +194,7 @@ public:
 
             D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
             psoDesc.pRootSignature = _rootSignature.get();
-            psoDesc.InputLayout = { inputLayout.data(), inputLayout.size() };
+            psoDesc.InputLayout = { inputLayout.data(), static_cast<UINT>(inputLayout.size()) };
             psoDesc.VS = CD3DX12_SHADER_BYTECODE(vsBytecode.get());
             psoDesc.PS = CD3DX12_SHADER_BYTECODE(psBytecode.get());
             psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -271,11 +271,15 @@ public:
 
         {
             // 定数バッファの作成
+            
+            // #define D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT (256)
+            UINT constantBufferSize = (sizeof(ConstantBuffer) + 255) & ~255;
+            
             // 毎フレーム CPU から書き込むので Upload ヒープが望ましい？
             THROW_IF_FAILED(_device->CreateCommittedResource(
                 &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
                 D3D12_HEAP_FLAG_NONE,
-                &CD3DX12_RESOURCE_DESC::Buffer(1024 * 64),
+                &CD3DX12_RESOURCE_DESC::Buffer(constantBufferSize),
                 D3D12_RESOURCE_STATE_GENERIC_READ,
                 nullptr,
                 IID_PPV_ARGS(_constantBuffer.put())));
@@ -290,13 +294,13 @@ public:
             // CBV を作成
             D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
             cbvDesc.BufferLocation = _constantBuffer->GetGPUVirtualAddress();
-            cbvDesc.SizeInBytes = (sizeof(ConstantBuffer) + 255) & ~255;
+            cbvDesc.SizeInBytes = constantBufferSize;
             _device->CreateConstantBufferView(&cbvDesc, _cbvHeap->GetCPUDescriptorHandleForHeapStart());
 
             // Unmap しなくてもコマンドリストがバッファの内容を GPU へ反映してくれるらしい
             CD3DX12_RANGE readRange(0, 0);
-            THROW_IF_FAILED(_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&_cbMappedData)));
-            *_cbMappedData = {};
+            THROW_IF_FAILED(_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&_mappedConstantBuffer)));
+            *_mappedConstantBuffer = {};
         }
 
         _stopwatch.start();
@@ -326,7 +330,7 @@ public:
 private:
     std::wstring GetAssetsPath(std::wstring const& filename) {
         std::array<wchar_t, MAX_PATH> appDirPath;
-        GetModuleFileName(nullptr, appDirPath.data(), appDirPath.size());
+        GetModuleFileName(nullptr, appDirPath.data(), static_cast<DWORD>(appDirPath.size()));
         PathRemoveFileSpec(appDirPath.data());
         std::wstring result(appDirPath.data());
         return result.append(L"\\..\\..\\Assets\\").append(filename);
@@ -350,7 +354,7 @@ private:
         auto camera = Matrix::CreateLookAt(Vector3(3, 3, 5), Vector3::Zero, Vector3::Up);
         auto projection = Matrix::CreatePerspectiveFieldOfView(XMConvertToRadians(45), aspectRatio, 0.1f, 100.0f);
 
-        _cbMappedData->worldViewProjectionMatrix =  object * camera * projection;
+        _mappedConstantBuffer->worldViewProjectionMatrix =  object * camera * projection;
     }
 
     void OnRender() {
@@ -370,9 +374,10 @@ private:
 
             _commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(_renderTargets[_frameIndex].get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-            D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle = _rtvHeap->GetCPUDescriptorHandleForHeapStart();
-            auto rtvDescriptorSize = _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-            rtvHandle.ptr += _frameIndex * rtvDescriptorSize;
+            CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
+                _rtvHeap->GetCPUDescriptorHandleForHeapStart(), 
+                _frameIndex, 
+                _device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV));
 
             auto dsvHandle = _dsvHeap->GetCPUDescriptorHandleForHeapStart();
 
@@ -391,7 +396,7 @@ private:
             std::array<ID3D12DescriptorHeap*, 1> descriptorHeaps = {
                 _cbvHeap.get(), 
             };
-            _commandList->SetDescriptorHeaps(descriptorHeaps.size(), descriptorHeaps.data());
+            _commandList->SetDescriptorHeaps(static_cast<UINT>(descriptorHeaps.size()), descriptorHeaps.data());
 
             _commandList->SetGraphicsRootDescriptorTable(0, _cbvHeap->GetGPUDescriptorHandleForHeapStart());
             
@@ -421,12 +426,12 @@ private:
         std::array<ID3D12CommandList*, 1> commandLists = {
             _commandList.get(),
         };
-        _commandQueue->ExecuteCommandLists(commandLists.size(), commandLists.data());
+        _commandQueue->ExecuteCommandLists(static_cast<UINT>(commandLists.size()), commandLists.data());
 
         // 今は DXGI_PRESENT_ALLOW_TEARING を明示しないと 
         // SyncInterval を 0 にしただけでは垂直同期を無視できない環境があるっぽい？
         // 条件が良くわからない…
-        bool allowTearing = false;
+        bool allowTearing = true;
         UINT syncInterval = 1;
         UINT presentFlags = 0;
         DXGI_PRESENT_PARAMETERS pp = {};
@@ -562,7 +567,7 @@ private:
     wil::com_ptr<ID3D12Resource> _indexBuffer;
     wil::com_ptr<ID3D12DescriptorHeap> _cbvHeap;
     wil::com_ptr<ID3D12Resource> _constantBuffer;
-    ConstantBuffer* _cbMappedData;
+    ConstantBuffer* _mappedConstantBuffer;
 
     Stopwatch _stopwatch;
     FPSCounter _fpsCounter;
