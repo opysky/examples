@@ -1,6 +1,9 @@
 #include "stdafx.h"
 #include "Direct3D11Application.h"
 
+// なんでヘッダーに宣言してないんじゃろ？
+IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 namespace {
 
 const DWORD WinStyle_Fixed = (WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX);
@@ -28,11 +31,7 @@ int Direct3D11Application::run(HINSTANCE hInstance, std::wstring const& appTitle
 
     _stopwatch.start();
 
-    int wParam = 0;
-    MSG msg;
-    msg.message = WM_NULL;
-    msg.wParam = 0;
-    
+    MSG msg = {};    
     PeekMessage(&msg, 0, 0, 0, PM_NOREMOVE);
     while (msg.message != WM_QUIT) {
         if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE) != 0) {
@@ -44,7 +43,6 @@ int Direct3D11Application::run(HINSTANCE hInstance, std::wstring const& appTitle
             draw();
         }
     }
-    wParam = static_cast<int>(msg.wParam);
 
     endRun();
 
@@ -52,7 +50,7 @@ int Direct3D11Application::run(HINSTANCE hInstance, std::wstring const& appTitle
 
     finalize();
 
-    return wParam;
+    return static_cast<int>(msg.wParam);
 }
 
 void Direct3D11Application::allowTearing(bool value)
@@ -82,9 +80,13 @@ std::wstring Direct3D11Application::assetsDirPath()
 
 bool Direct3D11Application::winProc(UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* result)
 {
+    if (auto lr = ImGui_ImplWin32_WndProcHandler(_hWnd, uMsg, wParam, lParam)) {
+        *result = lr;
+        return true;
+    }
+
     bool handled = false;
     switch (uMsg) {
-
     case WM_KEYDOWN: 
     case WM_SYSKEYDOWN: {
         uint32_t modifiers = KeyModifiers_None;
@@ -97,7 +99,6 @@ bool Direct3D11Application::winProc(UINT uMsg, WPARAM wParam, LPARAM lParam, LRE
         }
         break;
     }
-
     case WM_KEYUP:
     case WM_SYSKEYUP: {
         uint32_t modifiers = KeyModifiers_None;
@@ -110,21 +111,18 @@ bool Direct3D11Application::winProc(UINT uMsg, WPARAM wParam, LPARAM lParam, LRE
         }
         break;
     }
-
     case WM_SIZE: {
         UINT nType = static_cast<UINT>(wParam);
         SIZE size{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
         onSizeChanged(nType, size);
         break;
     }
-
     case WM_GETMINMAXINFO: {
         MINMAXINFO* mmi = reinterpret_cast<MINMAXINFO*>(lParam);
         mmi->ptMinTrackSize.x = 320;
         mmi->ptMinTrackSize.y = 240;
         break;
     }
-
     case WM_DESTROY: {
         PostQuitMessage(0);
         break;
@@ -232,7 +230,7 @@ void Direct3D11Application::createDevice()
             D3D11_SDK_VERSION,
             _device.put(),
             nullptr,
-            nullptr));
+            _context.put()));
 
         auto dxgiDevice = _device.query<IDXGIDevice>();
         wil::com_ptr<IDXGIAdapter> adapter;
@@ -240,9 +238,10 @@ void Direct3D11Application::createDevice()
         wil::com_ptr<IDXGIFactory5> factory;
         THROW_IF_FAILED(adapter->GetParent(IID_PPV_ARGS(factory.put())));
 
-        UINT swapChainFlags = 0;
-        
+        THROW_IF_FAILED(_device->CheckFeatureSupport(D3D11_FEATURE_THREADING, &_featureThreading, sizeof(_featureThreading)));
         THROW_IF_FAILED(factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &_tearingSupported, sizeof(_tearingSupported)));
+        
+        UINT swapChainFlags = 0;
         if (_tearingSupported) {
             swapChainFlags |= DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING;
         }
@@ -289,10 +288,27 @@ void Direct3D11Application::createDevice()
         THROW_IF_FAILED(_device->CreateTexture2D(&dsd, nullptr, depthBuffer.put()));
         THROW_IF_FAILED(_device->CreateDepthStencilView(depthBuffer.get(), nullptr, _depthBufferDSV.put()));        
     }
+
+    {
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGui::StyleColorsDark();
+
+        auto io = ImGui::GetIO();
+        io.IniFilename = nullptr;
+
+        ImGui_ImplWin32_Init(_hWnd);
+        ImGui_ImplDX11_Init(_device.get(), _context.get());
+    }
 }
 
 void Direct3D11Application::disposeDevice()
 {
+    {
+        ImGui_ImplDX11_Shutdown();
+        ImGui_ImplWin32_Shutdown();
+        ImGui::DestroyContext();
+    }
     _depthBufferDSV = nullptr;
     _backBufferRTV = nullptr;
     _swapChain = nullptr;
@@ -304,40 +320,61 @@ void Direct3D11Application::update()
     double currTime = _stopwatch.elapsedSec();
     auto deltaTime = currTime - _currentTime;
     _currentTime = currTime;
-
     _fpsCounter.update(deltaTime);
-    auto currFps = _fpsCounter.currentFps();
-    if (currFps != _currentFps) {
-        _currentFps = currFps;
-        updateStatistics(_currentFps);
-    }
 
     onUpdate(static_cast<float>(deltaTime));
 }
 
 void Direct3D11Application::draw()
 {
-    wil::com_ptr<ID3D11DeviceContext> context;
-    _device->GetImmediateContext(context.put());
+    {
+        ID3D11RenderTargetView* renderTargetViews[1];
+        renderTargetViews[0] = _backBufferRTV.get();
+        _context->OMSetRenderTargets(1, renderTargetViews, _depthBufferDSV.get());
 
-    ID3D11RenderTargetView* renderTargetViews[1];
-    renderTargetViews[0] = _backBufferRTV.get();
-    context->OMSetRenderTargets(1, renderTargetViews, _depthBufferDSV.get());
+        DXGI_SWAP_CHAIN_DESC1 scd;
+        _swapChain->GetDesc1(&scd);
 
-    DXGI_SWAP_CHAIN_DESC1 scd;
-    _swapChain->GetDesc1(&scd);
-    
-    D3D11_VIEWPORT vp = {};
-    vp.Width = static_cast<float>(scd.Width);
-    vp.Height = static_cast<float>(scd.Height);
-    vp.MinDepth = D3D11_MIN_DEPTH;
-    vp.MaxDepth = D3D11_MAX_DEPTH;
-    context->RSSetViewports(1, &vp);
+        D3D11_VIEWPORT vp = {};
+        vp.Width = static_cast<float>(scd.Width);
+        vp.Height = static_cast<float>(scd.Height);
+        vp.MinDepth = D3D11_MIN_DEPTH;
+        vp.MaxDepth = D3D11_MAX_DEPTH;
+        _context->RSSetViewports(1, &vp);
 
-    context->ClearRenderTargetView(_backBufferRTV.get(), DirectX::Colors::CornflowerBlue);
-    context->ClearDepthStencilView(_depthBufferDSV.get(), D3D11_CLEAR_DEPTH, 1.0f, 0x0);
-    
-    onDraw(context);
+        _context->ClearRenderTargetView(_backBufferRTV.get(), DirectX::Colors::CornflowerBlue);
+        _context->ClearDepthStencilView(_depthBufferDSV.get(), D3D11_CLEAR_DEPTH, 1.0f, 0x0);
+
+        onDraw(_context);
+    }
+
+    {
+        ImGui_ImplDX11_NewFrame();
+        ImGui_ImplWin32_NewFrame();
+        ImGui::NewFrame();
+
+        if (_isStatVisible) {
+            ImGui::SetNextWindowSize(ImVec2(200, 100), ImGuiCond_Once);
+            if (ImGui::Begin("Frame Statistics")) {
+                ImGui::Text("fps: %.2lf", _fpsCounter.currentFps());
+            }
+            ImGui::End();
+        }
+
+        if (_isCapsVisible) {
+            if (ImGui::Begin("D3D11 Caps")) {
+                ImGui::Text("DriverConcurrentCreates: %s", _featureThreading.DriverConcurrentCreates ? "true" : "false");
+                ImGui::Text("DriverCommandLists: %s", _featureThreading.DriverCommandLists ? "true" : "false");
+                ImGui::Text("PRESENT_ALLOW_TEARING: %s", _tearingSupported ? "true" : "false");
+            }
+            ImGui::End();
+        }
+
+        onImGui();
+
+        ImGui::Render();
+        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    }
 
     DXGI_PRESENT_PARAMETERS pp = {};
     UINT syncInterval = 1;
@@ -347,13 +384,6 @@ void Direct3D11Application::draw()
         presentFlags = DXGI_PRESENT_ALLOW_TEARING;
     }
     THROW_IF_FAILED(_swapChain->Present1(syncInterval, presentFlags, &pp));
-}
-
-void Direct3D11Application::updateStatistics(double fps)
-{
-    std::array<wchar_t, 256> text;
-    std::swprintf(text.data(), text.size(), L"%ls [fps: %.2lf]\n", _windowText.c_str(), fps);
-    SetWindowText(_hWnd, text.data());
 }
 
 LRESULT Direct3D11Application::bootstrapWinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)

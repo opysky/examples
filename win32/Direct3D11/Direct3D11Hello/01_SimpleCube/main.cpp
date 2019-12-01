@@ -8,6 +8,7 @@ namespace {
     struct ConstantBuffer {
         Matrix worldViewProjectionMatrix;
     };
+
 }
 
 class App : public Direct3D11Application
@@ -15,6 +16,8 @@ class App : public Direct3D11Application
     void beginRun() override 
     {
         auto device = nativeDevice();
+        auto context = nativeDeviceContext();
+
         {
             wil::com_ptr<ID3DBlob> bytecode;
             wil::com_ptr<ID3DBlob> error;
@@ -90,6 +93,9 @@ class App : public Direct3D11Application
         }
 
         _commonStates = std::make_unique<CommonStates>(device.get());
+
+        showStatistics(true);
+        showCaps(true);
     }
 
     void endRun() override 
@@ -106,7 +112,7 @@ class App : public Direct3D11Application
     void onUpdate(float deltaTime) override
     {
         RECT rc;
-        GetClientRect(hWnd(), &rc);
+        GetClientRect(hWndApp(), &rc);
         float aspectRatio = static_cast<float>(rc.right - rc.left) / (rc.bottom - rc.top);
 
         static float yAngle = 0.0f;
@@ -149,6 +155,11 @@ class App : public Direct3D11Application
         context->VSSetConstantBuffers(0, _countof(constantBuffers), constantBuffers);
 
         context->DrawIndexed(36, 0, 0);
+    }
+
+    void onImGui() override
+    {
+        
     }
 
     void onKeyEvent(KeyAction action, int code, uint32_t modifiers) override

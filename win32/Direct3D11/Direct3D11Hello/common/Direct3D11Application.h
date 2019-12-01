@@ -18,9 +18,12 @@ class Direct3D11Application {
 public:
     int run(HINSTANCE hInstance, std::wstring const& appTitle);
 
-    HWND hWnd() { return _hWnd; }
+    HWND hWndApp() { return _hWnd; }
     wil::com_ptr<ID3D11Device> const& nativeDevice() { return _device; }
+    wil::com_ptr<ID3D11DeviceContext> nativeDeviceContext() { return _context; }
     void allowTearing(bool value);
+    void showStatistics(bool value) { _isStatVisible = value; }
+    void showCaps(bool value) { _isCapsVisible = value; }
 
     std::wstring applicationFilePath();
     std::wstring applicationDirPath();
@@ -35,6 +38,7 @@ protected:
     virtual void endRun() {}
     virtual void onUpdate(float deltaTime) {}
     virtual void onDraw(wil::com_ptr<ID3D11DeviceContext> const& context) {}
+    virtual void onImGui() {}
 
     virtual void onSizeChanged(UINT nType, SIZE const& size);
     virtual void onKeyEvent(KeyAction action, int code, uint32_t modifiers) {}
@@ -44,7 +48,6 @@ private:
     void disposeDevice();
     void update();
     void draw();
-    void updateStatistics(double fps);
 
     static LRESULT CALLBACK bootstrapWinProc(HWND, UINT, WPARAM, LPARAM);
     static LRESULT CALLBACK dispatchWinProc(HWND, UINT, WPARAM, LPARAM, UINT_PTR, DWORD_PTR);
@@ -55,9 +58,12 @@ private:
     std::wstring _windowText;
 
     wil::com_ptr<ID3D11Device> _device;
+    wil::com_ptr<ID3D11DeviceContext> _context;
     wil::com_ptr<IDXGISwapChain2> _swapChain;
     wil::com_ptr<ID3D11RenderTargetView> _backBufferRTV;
     wil::com_ptr<ID3D11DepthStencilView> _depthBufferDSV;
+    
+    D3D11_FEATURE_DATA_THREADING _featureThreading;
     BOOL _tearingSupported = FALSE;
 
     Stopwatch _stopwatch;
@@ -65,4 +71,6 @@ private:
     double _currentTime = 0.0;
     double _currentFps = 0.0;
     bool _allowTearing = false;
+    bool _isStatVisible = false;
+    bool _isCapsVisible = false;
 };

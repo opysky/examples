@@ -6,7 +6,7 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <AdditionalIncludeDirectories>..\common</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\common;..\third_party\imgui;..\third_party\imgui\examples</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup />
