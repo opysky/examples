@@ -93,9 +93,6 @@ class App : public Direct3D11Application
         }
 
         _commonStates = std::make_unique<CommonStates>(device.get());
-
-        showStatistics(true);
-        showCaps(true);
     }
 
     void endRun() override 
@@ -159,17 +156,15 @@ class App : public Direct3D11Application
 
     void onImGui() override
     {
-        
+        //ImGui::ShowDemoWindow();
     }
 
     void onKeyEvent(KeyAction action, int code, uint32_t modifiers) override
     {
         if (action == KeyAction::Pressed) {
             switch (code) {
-            case 'V': {
-                static bool _allowTearing = false;
-                _allowTearing = !_allowTearing;
-                allowTearing(_allowTearing);
+            case VK_F11: {
+                toggleDevTools();
                 break;
             }
             }

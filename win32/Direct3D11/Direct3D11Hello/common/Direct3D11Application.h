@@ -22,8 +22,7 @@ public:
     wil::com_ptr<ID3D11Device> const& nativeDevice() { return _device; }
     wil::com_ptr<ID3D11DeviceContext> nativeDeviceContext() { return _context; }
     void allowTearing(bool value);
-    void showStatistics(bool value) { _isStatVisible = value; }
-    void showCaps(bool value) { _isCapsVisible = value; }
+    void toggleDevTools() { _isDevToolsVisible = !_isDevToolsVisible; }
 
     std::wstring applicationFilePath();
     std::wstring applicationDirPath();
@@ -64,6 +63,7 @@ private:
     wil::com_ptr<ID3D11DepthStencilView> _depthBufferDSV;
     
     D3D11_FEATURE_DATA_THREADING _featureThreading;
+    D3D11_FEATURE_DATA_DOUBLES _featureDoubles;
     BOOL _tearingSupported = FALSE;
 
     Stopwatch _stopwatch;
@@ -71,6 +71,5 @@ private:
     double _currentTime = 0.0;
     double _currentFps = 0.0;
     bool _allowTearing = false;
-    bool _isStatVisible = false;
-    bool _isCapsVisible = false;
+    bool _isDevToolsVisible = false;
 };

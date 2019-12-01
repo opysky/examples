@@ -14,6 +14,40 @@ const UINT BackBufferCount = 2;
 
 __declspec(thread) Direct3D11Application* _that = nullptr;
 
+std::string CombineOutFormatSupport2Text(UINT value)
+{
+    std::string result;
+
+    if (value & D3D11_FORMAT_SUPPORT2_UAV_ATOMIC_ADD)
+        result.append("UAV_ATOMIC_ADD|");
+    if (value & D3D11_FORMAT_SUPPORT2_UAV_ATOMIC_BITWISE_OPS)
+        result.append("UAV_ATOMIC_BITWISE_OPS|");
+    if (value & D3D11_FORMAT_SUPPORT2_UAV_ATOMIC_COMPARE_STORE_OR_COMPARE_EXCHANGE)
+        result.append("UAV_ATOMIC_COMPARE_STORE_OR_COMPARE_EXCHANGE|");
+    if (value & D3D11_FORMAT_SUPPORT2_UAV_ATOMIC_EXCHANGE)
+        result.append("UAV_ATOMIC_EXCHANGE|");
+    if (value & D3D11_FORMAT_SUPPORT2_UAV_ATOMIC_SIGNED_MIN_OR_MAX)
+        result.append("UAV_ATOMIC_SIGNED_MIN_OR_MAX|");
+    if (value & D3D11_FORMAT_SUPPORT2_UAV_ATOMIC_UNSIGNED_MIN_OR_MAX)
+        result.append("UAV_ATOMIC_UNSIGNED_MIN_OR_MAX|");
+    if (value & D3D11_FORMAT_SUPPORT2_UAV_TYPED_LOAD)
+        result.append("UAV_TYPED_LOAD|");
+    if (value & D3D11_FORMAT_SUPPORT2_UAV_TYPED_STORE)
+        result.append("UAV_TYPED_STORE|");
+    if (value & D3D11_FORMAT_SUPPORT2_OUTPUT_MERGER_LOGIC_OP)
+        result.append("OUTPUT_MERGER_LOGIC_OP|");
+    if (value & D3D11_FORMAT_SUPPORT2_TILED)
+        result.append("TILED|");
+    if (value & D3D11_FORMAT_SUPPORT2_SHAREABLE)
+        result.append("SHAREABLE|");
+    if (value & D3D11_FORMAT_SUPPORT2_MULTIPLANE_OVERLAY)
+        result.append("MULTIPLANE_OVERLAY|");
+
+    if (!result.empty()) result.pop_back();
+
+    return result;
+}
+
 }
 
 int Direct3D11Application::run(HINSTANCE hInstance, std::wstring const& appTitle)
@@ -238,7 +272,10 @@ void Direct3D11Application::createDevice()
         wil::com_ptr<IDXGIFactory5> factory;
         THROW_IF_FAILED(adapter->GetParent(IID_PPV_ARGS(factory.put())));
 
+        
         THROW_IF_FAILED(_device->CheckFeatureSupport(D3D11_FEATURE_THREADING, &_featureThreading, sizeof(_featureThreading)));
+        THROW_IF_FAILED(_device->CheckFeatureSupport(D3D11_FEATURE_DOUBLES, &_featureDoubles, sizeof(_featureDoubles)));
+        //THROW_IF_FAILED(_device->CheckFeatureSupport(D3D11_FEATURE_FORMAT_SUPPORT2, &_featureFormat2, sizeof(_featureFormat2)));
         THROW_IF_FAILED(factory->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &_tearingSupported, sizeof(_tearingSupported)));
         
         UINT swapChainFlags = 0;
@@ -294,11 +331,11 @@ void Direct3D11Application::createDevice()
         ImGui::CreateContext();
         ImGui::StyleColorsDark();
 
-        auto io = ImGui::GetIO();
-        io.IniFilename = nullptr;
-
         ImGui_ImplWin32_Init(_hWnd);
         ImGui_ImplDX11_Init(_device.get(), _context.get());
+
+        auto io = ImGui::GetIO();
+        io.IniFilename = NULL;
     }
 }
 
@@ -353,19 +390,37 @@ void Direct3D11Application::draw()
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        if (_isStatVisible) {
-            ImGui::SetNextWindowSize(ImVec2(200, 100), ImGuiCond_Once);
-            if (ImGui::Begin("Frame Statistics")) {
-                ImGui::Text("fps: %.2lf", _fpsCounter.currentFps());
-            }
-            ImGui::End();
-        }
+        if (_isDevToolsVisible) {
+            ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_Once);
+            if (ImGui::Begin("DevTools")) {
+                if (ImGui::BeginTabBar("##tabs")) {
+                    if (ImGui::BeginTabItem("Statistics")) {
+                        ImGui::Text("fps: %.2lf", _fpsCounter.currentFps());
+                        ImGui::EndTabItem();
+                    }
+                    if (ImGui::BeginTabItem("D3D11 Caps")) {
+                        auto dxgiDevice = _device.query<IDXGIDevice>();
+                        wil::com_ptr<IDXGIAdapter> adapter;
+                        THROW_IF_FAILED(dxgiDevice->GetAdapter(adapter.put()));
+                        auto adapter4 = adapter.query<IDXGIAdapter4>();
+                        DXGI_ADAPTER_DESC3 adapterDesc;
+                        adapter4->GetDesc3(&adapterDesc);
 
-        if (_isCapsVisible) {
-            if (ImGui::Begin("D3D11 Caps")) {
-                ImGui::Text("DriverConcurrentCreates: %s", _featureThreading.DriverConcurrentCreates ? "true" : "false");
-                ImGui::Text("DriverCommandLists: %s", _featureThreading.DriverCommandLists ? "true" : "false");
-                ImGui::Text("PRESENT_ALLOW_TEARING: %s", _tearingSupported ? "true" : "false");
+                        ImGui::Text("DedicatedVideoMemory: %zu MB", adapterDesc.DedicatedVideoMemory / (1024 * 1024));
+                        ImGui::Text("DedicatedSystemMemory: %zu MB", adapterDesc.DedicatedSystemMemory / (1024 * 1024));
+                        ImGui::Text("SharedSystemMemory: %zu MB", adapterDesc.SharedSystemMemory / (1024 * 1024));
+                        ImGui::Text("DriverConcurrentCreates: %s", _featureThreading.DriverConcurrentCreates ? "true" : "false");
+                        ImGui::Text("DriverCommandLists: %s", _featureThreading.DriverCommandLists ? "true" : "false");
+                        ImGui::Text("DoublePrecisionFloatShaderOps: %s", _featureDoubles.DoublePrecisionFloatShaderOps ? "true" : "false");
+                        ImGui::Text("PRESENT_ALLOW_TEARING: %s", _tearingSupported ? "true" : "false");
+                        ImGui::EndTabItem();
+                    }
+                    if (ImGui::BeginTabItem("Config")) {
+                        ImGui::Checkbox("Allow tearing", &_allowTearing);
+                        ImGui::EndTabItem();
+                    }
+                }
+                ImGui::EndTabBar();
             }
             ImGui::End();
         }
